@@ -1,9 +1,7 @@
-mod options;
+mod cmd;
 
 fn main() {
     let args = std::env::args();
-    
-    let config = options::Options::new(args);
 
-    println!("config = {:?}", config);
+    cmd::Command::from_args(args).run();
 }
