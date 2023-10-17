@@ -1,8 +1,9 @@
-mod lib;
+mod options;
 
 fn main() {
     let args = std::env::args();
     
+    let config = options::Options::new(args);
 
-    println!("Hello, world!");
+    println!("config = {:?}", config);
 }
