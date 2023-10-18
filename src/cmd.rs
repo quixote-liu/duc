@@ -23,6 +23,7 @@ Options:
   -h, --help                       Print help (see more with '--help')
   -V, --version                    Print version";
 
+#[derive(Debug)]
 struct Options {
     format: Option<OptionsFormat>,
     help: Option<bool>,
@@ -39,82 +40,101 @@ pub enum OptionsFormat {
     Mib,
 }
 
+#[derive(Debug)]
 enum SubCommand {
     Aggregate,
     Help,
 }
 
+#[derive(Debug)]
 pub struct Command {
-    options: Option<String>,
+    options: Option<Options>,
     sub_command: Option<SubCommand>,
     input: Vec<String>,
 }
 
 impl Command {
     pub fn from_args(mut args: impl Iterator<Item = String>) -> Command {
-        args.next();
+        args.next(); // filter the first argument
 
-        // parse options
+        // options
+        let mut options_ok = false;
         let mut options_format: (Option<OptionsFormat>, bool) = (None, false);
         let mut options_help : Option<bool> = None;
+
+        // subcommand
+        let mut sub_command_ok = false;
+        let mut sub_command: Option<SubCommand> = None;
+
+        // input
+        let mut input: Vec<String> = Vec::new();
+
         for arg in args {
-            if options_format.1 {
-                if options_format.0.is_some() {
-                    println!("error: duplicated option {} found\n", arg.clone());
-                    process::exit(1);
+            if !options_ok {
+                if options_format.1 {
+                    if options_format.0.is_some() {
+                        println!("error: duplicated option {} found\n", arg.clone());
+                        process::exit(1);
+                    }
+                    options_format.0 = match arg.as_str() {
+                        "metric"  => Some(OptionsFormat::Metric),
+                        "binary" => Some(OptionsFormat::Binary),
+                        "bytes"  => Some(OptionsFormat::Bytes),
+                        "gb" => Some(OptionsFormat::GB),
+                        "gib" => Some(OptionsFormat::Gib),
+                        "mb" => Some(OptionsFormat::MB),
+                        "mib" => Some(OptionsFormat::Mib),
+                        _ => None,
+                    };
+                    if options_format.0.is_none() {
+                        println!("error: invalid option {} found\n", arg.clone());
+                        process::exit(1);
+                    }
+                    options_format.1 = false;                
+                    continue
                 }
-                options_format.0 = match arg.as_str() {
-                    "metric"  => Some(OptionsFormat::Metric),
-                    "binary" => Some(OptionsFormat::Binary),
-                    "bytes"  => Some(OptionsFormat::Bytes),
-                    "gb" => Some(OptionsFormat::GB),
-                    "gib" => Some(OptionsFormat::Gib),
-                    "mb" => Some(OptionsFormat::MB),
-                    "mib" => Some(OptionsFormat::Mib),
-                    _ => None,
+    
+                if arg == "-f" || arg == "--format" {
+                    options_format.1 = true;
+                    continue
+                }
+                if arg == "-h" || arg == "--help" {
+                    options_help = Some(true);
+                    continue
+                }
+
+                options_ok = true;
+                continue
+            }
+
+            if !sub_command_ok {
+                sub_command = {
+                    if arg == "aggregate" {
+                        Some(SubCommand::Aggregate)
+                    } else if arg == "help" {
+                        Some(SubCommand::Help)
+                    } else {
+                        input.push(arg);
+                        None
+                    }
                 };
-                if options_format.0.is_none() {
-                    println!("error: invalid option {} found\n", arg.clone());
-                    process::exit(1);
-                }
-                options_format.1 = false;                
-                continue
+                sub_command_ok = true;
+                continue;
             }
 
-            if arg == "-f" || arg == "--format" {
-                options_format.1 = true;
-                continue
-            }
-            if arg == "-h" || arg == "--help" {
-                options_help = Some(true);
-                continue
-            }
-
-            break;
+            input.push(arg);
         }
-        let mut options = Some(
-            Options{
-                format: options_format.0,
-                help: options_help,
-            }
-        );
-
-        // parse sub command
-        let next_arg = args.next();
-        let mut sub_command = match next_arg {
-            Some(arg) => {
-                match arg.as_str() {
-                    "aggregate" => Some(SubCommand::Aggregate),
-                    "help" => Some(SubCommand::Help),
-                }
-            },
-            _ => None,
-        };
+        let options = Some(Options{
+            format: options_format.0,
+            help: options_help,
+        });
         if sub_command.is_none() {
             sub_command = Some(SubCommand::Aggregate);
         }
-
-        Command {}
+        if input.len() == 0 {
+            input.push("./".to_string());
+        }
+        Command { options: options, sub_command: sub_command, input: input }
     }
 
     pub fn run(&self) {
