@@ -1,5 +1,5 @@
 
-use std::process;
+use std::{process, fs};
 
 const HELP_TEXT: &str = "A tool to learn about disk usage, fast!
 
@@ -23,13 +23,13 @@ Options:
   -h, --help                       Print help (see more with '--help')
   -V, --version                    Print version";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Options {
     format: Option<OptionsFormat>,
     help: Option<bool>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OptionsFormat {
     Metric,
     Binary,
@@ -40,7 +40,7 @@ pub enum OptionsFormat {
     Mib,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 enum SubCommand {
     Aggregate,
     Help,
@@ -137,8 +137,67 @@ impl Command {
         Command { options: options, sub_command: sub_command, input: input }
     }
 
-    pub fn run(&self) {
+    fn exist_with_error(message: &str) {
+        println!("{message}");
+        process::exit(1);
+    }
 
+    fn print_help_text() {
+        println!("{HELP_TEXT}");
+        process::exit(0);
+    }
+
+    fn check_input(&self) {
+        for file_path in self.input.clone() {
+            match fs::metadata(file_path.clone()) {
+                Ok(_) => continue,
+                Err(_) => {
+                    let message = format!("the file path {} is not exist", file_path);
+                    Self::exist_with_error(message.as_str());
+                },
+            }
+        }
+    }
+
+    pub fn run(&self) {
+        self.check_input();
+
+        let opts: Option<Options> = self.options.clone();
+
+        // if the option is help
+        if let Some(opts) = opts {
+            if opts.help.is_some_and(|e| e == true) {
+                Self::print_help_text();
+            }
+
+            let mut is_aggregate = false;
+            if let Some(sub_cmd) = self.sub_command.clone() {
+                match sub_cmd {
+                    SubCommand::Aggregate => {is_aggregate = true},
+                    SubCommand::Help => {Self::print_help_text()},
+                }
+            }
+            if is_aggregate {
+                // read size from file
+
+                match opts.format {
+                    Some(format) => {
+                        match format {
+                            OptionsFormat::Metric => {},
+                            OptionsFormat::Binary => {},
+                            OptionsFormat::Bytes => {},
+                            OptionsFormat::GB => {},
+                            OptionsFormat::Gib => {},
+                            OptionsFormat::MB => {},
+                            OptionsFormat::Mib => {},
+                        }
+                    },
+                    None => {},
+                }
+            }
+            
+
+        }
     }
 }
 
