@@ -1,5 +1,6 @@
 
 use std::{process, fs};
+use walkdir::WalkDir;
 
 const HELP_TEXT: &str = "A tool to learn about disk usage, fast!
 
@@ -147,21 +148,24 @@ impl Command {
         process::exit(0);
     }
 
-    fn check_input(&self) {
-        for file_path in self.input.clone() {
-            match fs::metadata(file_path.clone()) {
-                Ok(_) => continue,
-                Err(_) => {
-                    let message = format!("the file path {} is not exist", file_path);
-                    Self::exist_with_error(message.as_str());
-                },
+    fn count_file_size(file_path: &str) -> u64 {
+        if file_path == "" {
+            return 0;
+        }
+        if let Ok(metadata) = fs::metadata(file_path) {
+            if metadata.is_dir() {
+                let mut res: u64 = 0;
+                
+                
             }
         }
+        
+
+        
+        0
     }
 
     pub fn run(&self) {
-        self.check_input();
-
         let opts: Option<Options> = self.options.clone();
 
         // if the option is help
@@ -179,6 +183,18 @@ impl Command {
             }
             if is_aggregate {
                 // read size from file
+                let mut file_info = Vec::new();
+                for file_path in self.input.clone() {
+                    match fs::metadata(file_path) {
+                        Ok(metadata) => {
+                            
+                        },
+                        Err(e) => {
+                            let message = format!("the file {} error: {:?}", file_path, e);
+                            Self::exist_with_error(message.as_str());
+                        },
+                    }
+                }
 
                 match opts.format {
                     Some(format) => {
