@@ -154,15 +154,51 @@ impl Command {
         }
         if let Ok(metadata) = fs::metadata(file_path) {
             if metadata.is_dir() {
-                let mut res: u64 = 0;
-                
-                
+                let mut file_total_size: u64 = 0;
+                WalkDir::new(file_path).into_iter().for_each(|file| {
+                    if let Ok(f) = file {
+                        let file_info = f.metadata().unwrap();
+                        if file_info.is_dir() {
+                            if let Some(child_file_path) = f.path().to_str() {
+                                let size = Self::count_file_size(child_file_path);
+                                file_total_size += size;
+                            }
+                        } else {
+                            file_total_size += file_info.len();
+                        }
+                    }
+                });
+                return file_total_size;
+            } else {
+                return metadata.len();
             }
         }
-        
-
-        
         0
+    }
+
+    // TODO: optimize
+    fn format_file_size(&self, options: Options, file_size: &[(String, u64)]) -> [(String, String)] {
+        // let mut file_format_size= Vec::new().set_len(file_size.len());
+        let mut file_format_size= Vec::new().resize(new_len, value);
+        file_size.into_iter().for_each(|element| {
+            let mut formated: (String, String) = (element.0, "".to_string());
+            match options.format {
+                Some(format) => {
+                    match format {
+                        OptionsFormat::Metric => {},
+                        OptionsFormat::Binary => {},
+                        OptionsFormat::Bytes => {},
+                        OptionsFormat::GB => {},
+                        OptionsFormat::Gib => {},
+                        OptionsFormat::MB => {},
+                        OptionsFormat::Mib => {},
+                    }
+                },
+                None => {},
+            }
+            file_format_size.push(formated);
+        });
+        *file_format_size.as_slice()
     }
 
     pub fn run(&self) {
@@ -185,9 +221,11 @@ impl Command {
                 // read size from file
                 let mut file_info = Vec::new();
                 for file_path in self.input.clone() {
-                    match fs::metadata(file_path) {
-                        Ok(metadata) => {
-                            
+                    match fs::metadata(file_path.as_str()) {
+                        Ok(_) => {
+                            let file_size = Self::count_file_size(file_path.as_str());
+                            let element = (file_path, file_size);
+                            file_info.push(element);
                         },
                         Err(e) => {
                             let message = format!("the file {} error: {:?}", file_path, e);
@@ -196,23 +234,7 @@ impl Command {
                     }
                 }
 
-                match opts.format {
-                    Some(format) => {
-                        match format {
-                            OptionsFormat::Metric => {},
-                            OptionsFormat::Binary => {},
-                            OptionsFormat::Bytes => {},
-                            OptionsFormat::GB => {},
-                            OptionsFormat::Gib => {},
-                            OptionsFormat::MB => {},
-                            OptionsFormat::Mib => {},
-                        }
-                    },
-                    None => {},
-                }
             }
-            
-
         }
     }
 }
