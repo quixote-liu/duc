@@ -176,29 +176,42 @@ impl Command {
         0
     }
 
-    // TODO: optimize
-    fn format_file_size(&self, options: Options, file_size: &[(String, u64)]) -> [(String, String)] {
-        // let mut file_format_size= Vec::new().set_len(file_size.len());
-        let mut file_format_size= Vec::new().resize(new_len, value);
-        file_size.into_iter().for_each(|element| {
-            let mut formated: (String, String) = (element.0, "".to_string());
-            match options.format {
-                Some(format) => {
-                    match format {
-                        OptionsFormat::Metric => {},
-                        OptionsFormat::Binary => {},
-                        OptionsFormat::Bytes => {},
-                        OptionsFormat::GB => {},
-                        OptionsFormat::Gib => {},
-                        OptionsFormat::MB => {},
-                        OptionsFormat::Mib => {},
-                    }
+    fn format_file_size(options: Options, mut file_size: u64) -> String {
+        let mut unit = String::new();
+        if let Some(format) = options.format {
+            match format {
+                OptionsFormat::Metric => {
+                    file_size /= 1000; 
+                    unit.push_str("KB");
                 },
-                None => {},
+                OptionsFormat::Binary => {
+                    file_size /= 1024; 
+                    unit.push_str("KiB");
+                },
+                OptionsFormat::Bytes => {
+                    unit.push_str("b");
+                },
+                OptionsFormat::GB => {
+                    file_size /= 1000*1000*1000; 
+                    unit.push_str("GB");
+                },
+                OptionsFormat::Gib => {
+                    file_size /= 1024*1024*1024; 
+                    unit.push_str("GiB");
+                },
+                OptionsFormat::MB => {
+                    file_size /= 1000*1000; 
+                    unit.push_str("MB");
+                },
+                OptionsFormat::Mib => {
+                    file_size /= 1024*1024; 
+                    unit.push_str("MiB");
+                },
             }
-            file_format_size.push(formated);
-        });
-        *file_format_size.as_slice()
+        };
+        let mut file_size_formated = file_size.to_string();
+        file_size_formated.push_str(&unit);
+        return file_size_formated;
     }
 
     pub fn run(&self) {
@@ -209,31 +222,42 @@ impl Command {
             if opts.help.is_some_and(|e| e == true) {
                 Self::print_help_text();
             }
-
-            let mut is_aggregate = false;
-            if let Some(sub_cmd) = self.sub_command.clone() {
-                match sub_cmd {
-                    SubCommand::Aggregate => {is_aggregate = true},
-                    SubCommand::Help => {Self::print_help_text()},
-                }
-            }
-            if is_aggregate {
-                // read size from file
-                let mut file_info = Vec::new();
-                for file_path in self.input.clone() {
-                    match fs::metadata(file_path.as_str()) {
-                        Ok(_) => {
-                            let file_size = Self::count_file_size(file_path.as_str());
-                            let element = (file_path, file_size);
-                            file_info.push(element);
+            match self.sub_command.clone() {
+                Some(sub_cmd) => {
+                    match sub_cmd {
+                        SubCommand::Help => {
+                            Self::print_help_text();
                         },
-                        Err(e) => {
-                            let message = format!("the file {} error: {:?}", file_path, e);
-                            Self::exist_with_error(message.as_str());
+                        SubCommand::Aggregate => {
+                            // read size from file
+                            let mut file_info = Vec::new();
+                            for file_path in self.input.clone() {
+                                match fs::metadata(file_path.as_str()) {
+                                    Ok(_) => {
+                                        let file_size = Self::count_file_size(file_path.as_str());
+                                        let file_size_format = Self::format_file_size(opts.clone(), file_size);
+                                        let element = (file_path, file_size_format);
+                                        file_info.push(element);
+                                    },
+                                    Err(e) => {
+                                        let message = format!("the file {} error: {:?}", file_path, e);
+                                        Self::exist_with_error(message.as_str());
+                                    },
+                                }
+                            };
+                            // output file size message
+                            file_info.into_iter().for_each(|element| {
+                                let mut line = String::new();
+                                line.push_str(&element.0);
+                                line.push_str("\t");
+                                line.push_str(&element.1); // input file name
+                                line.push_str("\n");
+                                println!("{}", line);
+                            })
                         },
                     }
-                }
-
+                },
+                None => {},
             }
         }
     }
