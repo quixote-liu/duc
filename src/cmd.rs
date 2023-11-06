@@ -47,7 +47,7 @@ enum SubCommand {
     Help,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Command {
     options: Option<Options>,
     sub_command: Option<SubCommand>,
@@ -148,72 +148,6 @@ impl Command {
         process::exit(0);
     }
 
-    fn count_file_size(file_path: &str) -> u64 {
-        if file_path == "" {
-            return 0;
-        }
-        if let Ok(metadata) = fs::metadata(file_path) {
-            if metadata.is_dir() {
-                let mut file_total_size: u64 = 0;
-                WalkDir::new(file_path).into_iter().for_each(|file| {
-                    if let Ok(f) = file {
-                        let file_info = f.metadata().unwrap();
-                        if file_info.is_dir() {
-                            if let Some(child_file_path) = f.path().to_str() {
-                                let size = Self::count_file_size(child_file_path);
-                                file_total_size += size;
-                            }
-                        } else {
-                            file_total_size += file_info.len();
-                        }
-                    }
-                });
-                return file_total_size;
-            } else {
-                return metadata.len();
-            }
-        }
-        0
-    }
-
-    fn format_file_size(options: Options, mut file_size: u64) -> String {
-        let mut unit = String::new();
-        if let Some(format) = options.format {
-            match format {
-                OptionsFormat::Metric => {
-                    file_size /= 1000; 
-                    unit.push_str("KB");
-                },
-                OptionsFormat::Binary => {
-                    file_size /= 1024; 
-                    unit.push_str("KiB");
-                },
-                OptionsFormat::Bytes => {
-                    unit.push_str("b");
-                },
-                OptionsFormat::GB => {
-                    file_size /= 1000*1000*1000; 
-                    unit.push_str("GB");
-                },
-                OptionsFormat::Gib => {
-                    file_size /= 1024*1024*1024; 
-                    unit.push_str("GiB");
-                },
-                OptionsFormat::MB => {
-                    file_size /= 1000*1000; 
-                    unit.push_str("MB");
-                },
-                OptionsFormat::Mib => {
-                    file_size /= 1024*1024; 
-                    unit.push_str("MiB");
-                },
-            }
-        };
-        let mut file_size_formated = file_size.to_string();
-        file_size_formated.push_str(&unit);
-        return file_size_formated;
-    }
-
     pub fn run(&self) {
         let opts: Option<Options> = self.options.clone();
 
@@ -234,8 +168,8 @@ impl Command {
                             for file_path in self.input.clone() {
                                 match fs::metadata(file_path.as_str()) {
                                     Ok(_) => {
-                                        let file_size = Self::count_file_size(file_path.as_str());
-                                        let file_size_format = Self::format_file_size(opts.clone(), file_size);
+                                        let file_size = count_file_size(file_path.as_str());
+                                        let file_size_format = format_file_size(opts.clone(), file_size);
                                         let element = (file_path, file_size_format);
                                         file_info.push(element);
                                     },
@@ -263,3 +197,79 @@ impl Command {
     }
 }
 
+fn count_file_size(file_path: &str) -> u64 {
+    if file_path == "" {
+        return 0;
+    }
+    if let Ok(metadata) = fs::metadata(file_path) {
+        if metadata.is_dir() {
+            let mut file_total_size: u64 = 0;
+            WalkDir::new(file_path).into_iter().for_each(|file| {
+                if let Ok(f) = file {
+                    let file_info = f.metadata().unwrap();
+                    if file_info.is_dir() {
+                        if let Some(child_file_path) = f.path().to_str() {
+                            let size = count_file_size(child_file_path);
+                            file_total_size += size;
+                        }
+                    } else {
+                        file_total_size += file_info.len();
+                    }
+                }
+            });
+            return file_total_size;
+        } else {
+            return metadata.len();
+        }
+    }
+    0
+}
+
+fn format_file_size(options: Options, mut file_size: u64) -> String {
+    let mut unit = String::new();
+    if let Some(format) = options.format {
+        match format {
+            OptionsFormat::Metric => {
+                file_size /= 1000; 
+                unit.push_str("KB");
+            },
+            OptionsFormat::Binary => {
+                file_size /= 1024; 
+                unit.push_str("KiB");
+            },
+            OptionsFormat::Bytes => {
+                unit.push_str("b");
+            },
+            OptionsFormat::GB => {
+                file_size /= 1000*1000*1000; 
+                unit.push_str("GB");
+            },
+            OptionsFormat::Gib => {
+                file_size /= 1024*1024*1024; 
+                unit.push_str("GiB");
+            },
+            OptionsFormat::MB => {
+                file_size /= 1000*1000; 
+                unit.push_str("MB");
+            },
+            OptionsFormat::Mib => {
+                file_size /= 1024*1024; 
+                unit.push_str("MiB");
+            },
+        }
+    };
+    let mut file_size_formated = file_size.to_string();
+    file_size_formated.push_str(&unit);
+    return file_size_formated;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cmd;
+    
+    #[test]
+    fn test_count_file_size() {
+        let res = cmd::count_file_size("../src");
+        println!("the result = {}", res);
+    }
+}
